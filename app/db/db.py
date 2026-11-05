@@ -31,3 +31,10 @@ def get_session():
 def init_db():
     from app.db import models 
     Base.metadata.create_all(bind=engine)
+
+def get_db():
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()

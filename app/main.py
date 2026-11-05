@@ -1,21 +1,28 @@
-from app.db.db import get_session
-from app.db import crud
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from sqlalchemy import text
+
+from app.api import books, categories
+from app.db.db import engine, init_db
 
 
-def main():
-    with get_session() as session:
-        categories = crud.get_categories(session)
-
-        print("=== Категории и книги ===")
-        for category in categories:
-            print(f"\n[{category.id}] {category.title}")
-            for book in crud.get_books(session, category_id=category.id):
-                print(f"   - {book.title} | {book.price} руб. | {book.description}")
-
-        print("\n=== Все книги ===")
-        for book in crud.get_books(session):
-            print(f"{book.id}. {book.title} ({book.category.title}) - {book.price} руб.")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    init_db()
+    print("Подключение к БД установлено")
+    yield
+    engine.dispose()
 
 
-if __name__ == "__main__":
-    main()
+app = FastAPI(title="Octagon API", lifespan=lifespan)
+
+app.include_router(categories.router)
+app.include_router(books.router)
+
+
+@app.get("/health", tags=["health"])
+def health():
+    return {"status": "ok"}
